@@ -18,7 +18,7 @@
    ═══════════════════════════════════════════════════════ */
 
 import { downloadBlob, niceScale } from './utils.js';
-import { getIVChart } from './charts.js';
+import { getIVChart, getTsVChart, getTsIChart } from './charts.js';
 
 /**
  * exportCSV — Analiz Sonuçlarını CSV Olarak Dışa Aktarma
@@ -59,15 +59,21 @@ export function exportCSV(results, sourceFileName) {
  * PNG dosyası olarak indirir. Çözünürlük ekran piksel
  * yoğunluğuna bağlıdır.
  *
+ * @param {string} type           - Grafik tipi ('iv', 'ts-v', 'ts-i')
  * @param {string} sourceFileName - Kaynak dosya adı (uzantısız)
  */
-export function exportPNG(sourceFileName) {
-  const chart = getIVChart();
+export function exportPNG(type, sourceFileName) {
+  let chart;
+  let suffix;
+  if (type === 'ts-v') { chart = getTsVChart(); suffix = 'ts_voltage'; }
+  else if (type === 'ts-i') { chart = getTsIChart(); suffix = 'ts_current'; }
+  else { chart = getIVChart(); suffix = 'iv'; }
+
   if (!chart) return;
   const url = chart.toBase64Image('image/png', 1);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `${sourceFileName}_iv_chart.png`;
+  a.download = `${sourceFileName}_${suffix}_chart.png`;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
@@ -317,6 +323,228 @@ export function exportScientificFigure(results, xAxisFromZero, sourceFileName) {
     const a = document.createElement('a');
     a.href = url;
     a.download = `${sourceFileName}_iv_scientific.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 'image/png');
+}
+
+/**
+ * exportTsScience — Time-Series grafikleri publication-quality formatta dışa aktarır.
+ * Özel (bespoke) yüksek çözünürlüklü siyah-beyaz canvas kullanılarak
+ * I-V akademik grafiği stiliyle tamamen uyumlu bir PDF/PNG çıktısı üretir.
+ */
+export function exportTsScience(type, sourceFileName) {
+  let chart;
+  let suffix;
+  let yTitle;
+  let mainTitle;
+  
+  if (type === 'ts-v') { 
+      chart = getTsVChart(); 
+      suffix = 'ts_voltage'; 
+      yTitle = 'Voltage (V)';
+      mainTitle = 'Time-Series Voltage Characteristic — CAEN N1470';
+  } else if (type === 'ts-i') { 
+      chart = getTsIChart(); 
+      suffix = 'ts_current'; 
+      yTitle = 'Current (µA)';
+      mainTitle = 'Time-Series Current Characteristic — CAEN N1470';
+  }
+  
+  if (!chart || !chart.data.labels.length) return;
+
+  const labels = chart.data.labels;
+  const ch1Data = chart.data.datasets[0].data;
+  const ch2Data = chart.data.datasets[1].data;
+
+  // ── Çözünürlük Konfigürasyonu ──
+  const DPI_SCALE = 4;
+  const W = 1000 * DPI_SCALE;
+  const H = 600 * DPI_SCALE;
+  const PAD = {
+    top:    60 * DPI_SCALE,
+    right:  40 * DPI_SCALE,
+    bottom: 100 * DPI_SCALE,
+    left:   100 * DPI_SCALE,
+  };
+
+  const canvas = document.createElement('canvas');
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, H);
+
+  const plotW = W - PAD.left - PAD.right;
+  const plotH = H - PAD.top - PAD.bottom;
+
+  // Compute Y metrics
+  let yMin = Infinity;
+  let yMax = -Infinity;
+  for (let i = 0; i < labels.length; i++) {
+     if (ch1Data[i] !== null) { yMin = Math.min(yMin, ch1Data[i]); yMax = Math.max(yMax, ch1Data[i]); }
+     if (ch2Data[i] !== null) { yMin = Math.min(yMin, ch2Data[i]); yMax = Math.max(yMax, ch2Data[i]); }
+  }
+  if (yMin === Infinity) return; // No data
+
+  // Provide tight bounds and let niceScale handle it
+  // Ensure yMax > yMin
+  if (yMax === yMin) {
+     yMin -= 1;
+     yMax += 1;
+  }
+  
+  const yTicks = niceScale(yMin, yMax, 6);
+  yMin = Math.min(yMin, yTicks[0]);
+  yMax = Math.max(yMax, yTicks[yTicks.length - 1]);
+
+  function toCanvasX(index) { return PAD.left + (index / (labels.length - 1)) * plotW; }
+  function toCanvasY(v) { return PAD.top + plotH - ((v - yMin) / (yMax - yMin)) * plotH; }
+
+  // ── Eksen çizgileri (L-şekli) ──
+  ctx.strokeStyle = '#000000';
+  ctx.lineWidth = 2 * DPI_SCALE;
+  ctx.beginPath();
+  ctx.moveTo(PAD.left, PAD.top);
+  ctx.lineTo(PAD.left, PAD.top + plotH);
+  ctx.lineTo(PAD.left + plotW, PAD.top + plotH);
+  ctx.stroke();
+
+  const serifFont      = `${12 * DPI_SCALE}px "Times New Roman", Georgia, serif`;
+  const serifFontBold  = `bold ${14 * DPI_SCALE}px "Times New Roman", Georgia, serif`;
+  const serifFontTitle = `bold ${16 * DPI_SCALE}px "Times New Roman", Georgia, serif`;
+
+  ctx.fillStyle = '#000000';
+  ctx.strokeStyle = '#000000';
+  ctx.lineWidth = 1.5 * DPI_SCALE;
+
+  // ── X ekseni tick'leri (Zaman Kategorileri) ──
+  const xTickIndices = [];
+  const numXTicks = 8;
+  for (let i = 0; i < numXTicks; i++) {
+     xTickIndices.push(Math.round(i * (labels.length - 1) / (numXTicks - 1)));
+  }
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.font = serifFont;
+  
+  for (const idx of xTickIndices) {
+     const cx = toCanvasX(idx);
+     ctx.beginPath();
+     ctx.moveTo(cx, PAD.top + plotH);
+     ctx.lineTo(cx, PAD.top + plotH + 8 * DPI_SCALE);
+     ctx.stroke();
+     ctx.fillText(labels[idx], cx, PAD.top + plotH + 12 * DPI_SCALE);
+  }
+
+  // ── Y ekseni tick'leri ──
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (const t of yTicks) {
+    const cy = toCanvasY(t);
+    if (cy < PAD.top - 2 || cy > PAD.top + plotH + 2) continue;
+    ctx.beginPath();
+    ctx.moveTo(PAD.left, cy);
+    ctx.lineTo(PAD.left - 8 * DPI_SCALE, cy);
+    ctx.stroke();
+    const dec = (yMax - yMin < 5) ? 2 : 0;
+    ctx.fillText(t.toFixed(dec), PAD.left - 12 * DPI_SCALE, cy);
+
+    ctx.save();
+    ctx.strokeStyle = '#e0e0e0';
+    ctx.lineWidth = 0.5 * DPI_SCALE;
+    ctx.setLineDash([4 * DPI_SCALE, 4 * DPI_SCALE]);
+    ctx.beginPath();
+    ctx.moveTo(PAD.left, cy);
+    ctx.lineTo(PAD.left + plotW, cy);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // ── Eksen başlıkları ──
+  ctx.fillStyle = '#000000';
+  ctx.font = serifFontBold;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText('Time (HH:MM:SS)', PAD.left + plotW / 2, PAD.top + plotH + 50 * DPI_SCALE);
+
+  ctx.save();
+  ctx.translate(30 * DPI_SCALE, PAD.top + plotH / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(yTitle, 0, 0);
+  ctx.restore();
+
+  // ── Veri Çizgileri Yardımcısı ──
+  function drawChannel(data, dashPattern) {
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2 * DPI_SCALE;
+    ctx.lineJoin = 'round';
+    ctx.setLineDash(dashPattern);
+    ctx.beginPath();
+    let started = false;
+    for (let i = 0; i < labels.length; i++) {
+      if (data[i] !== null) {
+        const cx = toCanvasX(i);
+        const cy = toCanvasY(data[i]);
+        if (!started) {
+          ctx.moveTo(cx, cy);
+          started = true;
+        } else {
+          ctx.lineTo(cx, cy);
+        }
+      }
+    }
+    ctx.stroke();
+  }
+
+  // Draw Channel 2 (Dashed gray/black)
+  drawChannel(ch2Data, [15 * DPI_SCALE, 10 * DPI_SCALE]);
+  // Draw Channel 1 (Solid black)
+  drawChannel(ch1Data, []);
+
+  // ── Efsane (Legend) ──
+  const legendX = PAD.left + 20 * DPI_SCALE;
+  const legendY1 = PAD.top + 16 * DPI_SCALE;
+  const legendY2 = PAD.top + 40 * DPI_SCALE;
+  ctx.font = `${12 * DPI_SCALE}px "Times New Roman", Georgia, serif`;
+  ctx.fillStyle = '#000000';
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'middle';
+
+  // Ch 1
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(legendX, legendY1);
+  ctx.lineTo(legendX + 30 * DPI_SCALE, legendY1);
+  ctx.stroke();
+  ctx.fillText('Channel 1', legendX + 40 * DPI_SCALE, legendY1);
+
+  // Ch 2
+  ctx.setLineDash([10 * DPI_SCALE, 5 * DPI_SCALE]);
+  ctx.beginPath();
+  ctx.moveTo(legendX, legendY2);
+  ctx.lineTo(legendX + 30 * DPI_SCALE, legendY2);
+  ctx.stroke();
+  ctx.fillText('Channel 2', legendX + 40 * DPI_SCALE, legendY2);
+
+  // ── Figür başlığı ──
+  ctx.font = serifFontTitle;
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#000000';
+  ctx.fillText(mainTitle, W / 2, PAD.top / 2);
+
+  // ── PNG olarak indirme ──
+  canvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${sourceFileName}_${suffix}_scientific.png`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

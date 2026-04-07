@@ -19,6 +19,8 @@ import { chartColors } from './theme.js';
 let ivChart  = null;
 let ch1Chart = null;
 let ch2Chart = null;
+let tsVChart = null;
+let tsIChart = null;
 
 /**
  * destroyCharts — Mevcut Grafikleri Yok Etme
@@ -32,6 +34,8 @@ export function destroyCharts() {
   if (ivChart)  { ivChart.destroy();  ivChart = null; }
   if (ch1Chart) { ch1Chart.destroy(); ch1Chart = null; }
   if (ch2Chart) { ch2Chart.destroy(); ch2Chart = null; }
+  if (tsVChart) { tsVChart.destroy(); tsVChart = null; }
+  if (tsIChart) { tsIChart.destroy(); tsIChart = null; }
 }
 
 /**
@@ -44,6 +48,14 @@ export function destroyCharts() {
  */
 export function getIVChart() {
   return ivChart;
+}
+
+export function getTsVChart() {
+  return tsVChart;
+}
+
+export function getTsIChart() {
+  return tsIChart;
 }
 
 /**
@@ -354,4 +366,150 @@ export function renderOverview(allRecords, chData, results, container) {
       <div class="ov-label">${i.label}</div>
     </div>
   `).join('');
+}
+
+/* ─────────────────────────────────────────
+   Zaman Serisi (Time-Series) Grafikleri
+   ───────────────────────────────────────── */
+
+/**
+ * renderTimeSeriesCharts
+ * Ham loglardaki (records) VMon ve IMonH değerlerini zamana karşı çizer.
+ * Hem Kanal 1 hem Kanal 2 için okumaları kendi zaman ekseni etiketlerine eşleştirir.
+ * 
+ * @param {Array} records - parseLog()'dan gelen ayrıştırılmış tüm log satırları
+ */
+export function renderTimeSeriesCharts(records) {
+  const c = chartColors();
+
+  // Yalnızca geçerli kanalları süzgeçe al
+  const validRecords = records.filter(r => r.ch === 1 || r.ch === 2);
+
+  // VMon logları
+  const vLogs = validRecords.filter(r => r.par === 'VMon');
+  const vRawLabels = [...new Set(vLogs.map(r => r.timestamp))].sort();
+  
+  // IMonH logları
+  const iLogs = validRecords.filter(r => r.par === 'IMonH');
+  const iRawLabels = [...new Set(iLogs.map(r => r.timestamp))].sort();
+
+  // Zaman etiketlerini HH:MM:SS formatına çevir, boşlukları null ile doldurmak için lookup map oluştur.
+  const createMap = (filteredLogs, channel) => {
+    const map = {};
+    filteredLogs.filter(r => r.ch === channel).forEach(r => map[r.timestamp] = r.val);
+    return map;
+  };
+
+  const vCh1Map = createMap(vLogs, 1);
+  const vCh2Map = createMap(vLogs, 2);
+  const iCh1Map = createMap(iLogs, 1);
+  const iCh2Map = createMap(iLogs, 2);
+
+  // Veri Serilerini oluştur (her HH:MM:SS degeri icin map icinde arama yapariz, yoksa null doner spanGaps: true devreye girer)
+  const formatTime = (ts) => ts.split('T')[1].substring(0, 8);
+  const vDisplayLabels = vRawLabels.map(formatTime);
+  const vDataCh1 = vRawLabels.map(ts => vCh1Map[ts] !== undefined ? vCh1Map[ts] : null);
+  const vDataCh2 = vRawLabels.map(ts => vCh2Map[ts] !== undefined ? vCh2Map[ts] : null);
+
+  const iDisplayLabels = iRawLabels.map(formatTime);
+  const iDataCh1 = iRawLabels.map(ts => iCh1Map[ts] !== undefined ? iCh1Map[ts] : null);
+  const iDataCh2 = iRawLabels.map(ts => iCh2Map[ts] !== undefined ? iCh2Map[ts] : null);
+
+  // Voltaj - Zaman Grafiğini Çiz
+  const tsVEl = document.getElementById('ts-v-chart');
+  if (tsVEl) {
+    if (tsVChart) tsVChart.destroy();
+    tsVChart = new Chart(tsVEl.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: vDisplayLabels,
+        datasets: [
+          {
+            label: 'Ch 1 Voltage (VMon)',
+            data: vDataCh1,
+            borderColor: '#6366f1',
+            borderWidth: 1.5,
+            pointRadius: 1,
+            pointHoverRadius: 4,
+            tension: 0, 
+            spanGaps: true
+          },
+          {
+            label: 'Ch 2 Voltage (VMon)',
+            data: vDataCh2,
+            borderColor: '#f59e0b',
+            borderWidth: 1.5,
+            pointRadius: 1,
+            pointHoverRadius: 4,
+            tension: 0,
+            spanGaps: true
+          }
+        ]
+      },
+      options: tsChartOpts('Voltage Over Time', 'Voltage (V)', c)
+    });
+  }
+
+  // Akım - Zaman Grafiğini Çiz
+  const tsIEl = document.getElementById('ts-i-chart');
+  if (tsIEl) {
+    if (tsIChart) tsIChart.destroy();
+    tsIChart = new Chart(tsIEl.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: iDisplayLabels,
+        datasets: [
+          {
+            label: 'Ch 1 Current (IMonH)',
+            data: iDataCh1,
+            borderColor: '#6366f1',
+            borderWidth: 1.5,
+            pointRadius: 1,
+            pointHoverRadius: 4,
+            tension: 0,
+            spanGaps: true
+          },
+          {
+            label: 'Ch 2 Current (IMonH)',
+            data: iDataCh2,
+            borderColor: '#f59e0b',
+            borderWidth: 1.5,
+            pointRadius: 1,
+            pointHoverRadius: 4,
+            tension: 0,
+            spanGaps: true
+          }
+        ]
+      },
+      options: tsChartOpts('Current Over Time', 'Current (µA)', c)
+    });
+  }
+}
+
+function tsChartOpts(title, yLabel, c) {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'nearest', axis: 'x', intersect: false },
+    plugins: {
+      legend: { labels: { color: c.legendColor, font: { size: 11 }, usePointStyle: true, padding: 14 } },
+      tooltip: {
+        backgroundColor: c.tooltipBg, titleColor: c.tooltipTitle, bodyColor: c.tooltipBody,
+        borderColor: c.tooltipBorder, borderWidth: 1, padding: 12,
+        bodyFont: { family: "'JetBrains Mono'", size: 11 },
+      },
+    },
+    scales: {
+      x: {
+        title: { display: true, text: 'Time (HH:MM:SS)', color: c.tickColor, font: { size: 11 } },
+        ticks: { color: c.tickColor, font: { family: "'JetBrains Mono'", size: 10 }, maxTicksLimit: 12 },
+        grid: { color: c.gridColor },
+      },
+      y: {
+        title: { display: true, text: yLabel, color: c.tickColor, font: { size: 11 } },
+        ticks: { color: c.tickColor, font: { family: "'JetBrains Mono'", size: 10 } },
+        grid: { color: c.gridColor },
+      },
+    },
+  };
 }

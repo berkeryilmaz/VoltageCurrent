@@ -34,11 +34,14 @@ import {
   renderChannelCharts,
   renderStats,
   renderOverview,
+  renderTimeSeriesCharts,
 } from './js/charts.js';
+
 import {
   exportCSV,
   exportPNG,
   exportScientificFigure,
+  exportTsScience,
 } from './js/export.js';
 
 /* ═══════════════════════════════════════
@@ -60,6 +63,8 @@ const resultsSec   = document.getElementById('results-section');
 const statsSec     = document.getElementById('stats-section');
 const channelSec   = document.getElementById('channel-section');
 const rawSec       = document.getElementById('raw-section');
+const tsVSec       = document.getElementById('ts-v-section');
+const tsISec       = document.getElementById('ts-i-section');
 const howItWorksSec= document.getElementById('how-it-works-section');
 const statsBody    = document.getElementById('stats-body');
 const overviewGrid = document.getElementById('overview-grid');
@@ -206,7 +211,7 @@ function resetFile() {
   analyzeBtn.disabled = true;
   statusBadge.textContent = 'No Data';
   statusBadge.classList.remove('active');
-  [resultsSec, statsSec, channelSec, rawSec, howItWorksSec].forEach(s => s.style.display = 'none');
+  [resultsSec, statsSec, channelSec, rawSec, howItWorksSec, tsVSec, tsISec].forEach(s => s.style.display = 'none');
   destroyCharts();
 }
 
@@ -263,10 +268,13 @@ function runAnalysis() {
   channelSec.style.display = '';
   rawSec.style.display = '';
   howItWorksSec.style.display = '';
+  tsVSec.style.display = '';
+  tsISec.style.display = '';
 
   renderIVChart(analysisData, xAxisFromZero);
-  renderStats(analysisData, statsBody);
   renderChannelCharts(analysisData);
+  renderTimeSeriesCharts(parsedData);
+  renderStats(analysisData, statsBody);
   renderOverview(parsedData, chData, analysisData, overviewGrid);
 
   // 4. Sonuçlara kaydır
@@ -320,19 +328,32 @@ rawDataModal.addEventListener('click', (e) => {
    DIŞA AKTARMA BUTONLARI
    ═══════════════════════════════════════ */
 
-// CSV — tablo verisini virgülle ayrılmış dosya olarak
+// CSV
 exportCSVBtn.addEventListener('click', () => {
   exportCSV(analysisData, sourceFileName);
 });
 
-// PNG — ekrandaki grafiğin görüntüsü
+// I-V PNG & Science
 exportPNGBtn.addEventListener('click', () => {
-  exportPNG(sourceFileName);
+  exportPNG('iv', sourceFileName);
 });
-
-// Science — yayın kalitesinde bilimsel figür
 exportScienceBtn.addEventListener('click', () => {
   exportScientificFigure(analysisData, xAxisFromZero, sourceFileName);
+});
+
+// Time-Series PNG & Science
+document.getElementById('export-ts-v-png').addEventListener('click', () => {
+  exportPNG('ts-v', sourceFileName);
+});
+document.getElementById('export-ts-v-science').addEventListener('click', () => {
+  exportTsScience('ts-v', sourceFileName);
+});
+
+document.getElementById('export-ts-i-png').addEventListener('click', () => {
+  exportPNG('ts-i', sourceFileName);
+});
+document.getElementById('export-ts-i-science').addEventListener('click', () => {
+  exportTsScience('ts-i', sourceFileName);
 });
 
 

@@ -247,6 +247,64 @@
             </div>
         </section>
 
+        <!-- ─── Time-Series Voltage ─── -->
+        <section class="card time-series-card" id="ts-v-section" style="display:none">
+            <div class="card-header">
+                <h2>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="20"
+                        height="20">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                    </svg>
+                    <span>Voltage vs Time</span>
+                </h2>
+                <div class="header-actions">
+                    <button class="btn btn-ghost" id="export-ts-v-png" title="Export PNG">PNG</button>
+                    <button class="btn btn-accent" id="export-ts-v-science" title="Export publication-quality figure">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16"
+                            height="16">
+                            <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
+                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
+                        </svg>
+                        <span>Science</span>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="chart-wrapper" style="height: 350px;">
+                    <canvas id="ts-v-chart"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- ─── Time-Series Current ─── -->
+        <section class="card time-series-card" id="ts-i-section" style="display:none">
+            <div class="card-header">
+                <h2>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="20"
+                        height="20">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+                    </svg>
+                    <span>Current vs Time</span>
+                </h2>
+                <div class="header-actions">
+                    <button class="btn btn-ghost" id="export-ts-i-png" title="Export PNG">PNG</button>
+                    <button class="btn btn-accent" id="export-ts-i-science" title="Export publication-quality figure">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16"
+                            height="16">
+                            <path d="M4 19.5A2.5 2.5 0 016.5 17H20" />
+                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z" />
+                        </svg>
+                        <span>Science</span>
+                    </button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="chart-wrapper" style="height: 350px;">
+                    <canvas id="ts-i-chart"></canvas>
+                </div>
+            </div>
+        </section>
+
         <!-- ─── Raw Data Overview ─── -->
         <section class="card raw-card" id="raw-section" style="display:none">
             <div class="card-header">
@@ -271,7 +329,8 @@
         <section class="card how-it-works-card" id="how-it-works-section" style="display:none">
             <div class="card-header">
                 <h2>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="20" height="20">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="20"
+                        height="20">
                         <circle cx="12" cy="12" r="10" />
                         <line x1="12" y1="16" x2="12" y2="12" />
                         <line x1="12" y1="8" x2="12.01" y2="8" />
@@ -281,32 +340,68 @@
             </div>
             <div class="card-body">
                 <div style="display:flex; flex-direction:column; gap:16px;">
-                    <div style="display:flex; gap:16px; align-items:flex-start; padding:16px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm);">
-                        <div style="background:var(--accent); color:#fff; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-family:var(--font-mono); font-size:14px;">1</div>
+                    <div
+                        style="display:flex; gap:16px; align-items:flex-start; padding:16px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm);">
+                        <div
+                            style="background:var(--accent); color:#fff; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-family:var(--font-mono); font-size:14px;">
+                            1</div>
                         <div>
-                            <h3 style="font-size:0.9rem; margin-bottom:4px; color:var(--text-primary);">⚡ Voltaj ve Akım Eşleştirmesi (VMon & IMon)</h3>
-                            <p style="font-size:0.8rem; color:var(--text-secondary); line-height:1.5;">Güç kaynağı (N1470) loglarında her kanala ait voltaj (VMon) ve akım (IMonH) farklı zaman damgalarında raporlanabilir. Analiz algoritması okunan her <code>IMonH</code> akım satırını hafızaya alır ve o kanalda cihazın raporladığı "en son" geçerli <code>VMon</code> (gerçekleşen voltaj) değeri ile eşleştirerek veriyi birleştirir.</p>
+                            <h3 style="font-size:0.9rem; margin-bottom:4px; color:var(--text-primary);">⚡ Voltaj ve Akım
+                                Eşleştirmesi (VMon & IMon)</h3>
+                            <p style="font-size:0.8rem; color:var(--text-secondary); line-height:1.5;">Güç kaynağı
+                                (N1470) loglarında her kanala ait voltaj (VMon) ve akım (IMonH) farklı zaman
+                                damgalarında raporlanabilir. Analiz algoritması okunan her <code>IMonH</code> akım
+                                satırını hafızaya alır ve o kanalda cihazın raporladığı "en son" geçerli
+                                <code>VMon</code> (gerçekleşen voltaj) değeri ile eşleştirerek veriyi birleştirir.
+                            </p>
                         </div>
                     </div>
-                    <div style="display:flex; gap:16px; align-items:flex-start; padding:16px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm);">
-                        <div style="background:var(--accent); color:#fff; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-family:var(--font-mono); font-size:14px;">2</div>
+                    <div
+                        style="display:flex; gap:16px; align-items:flex-start; padding:16px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm);">
+                        <div
+                            style="background:var(--accent); color:#fff; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-family:var(--font-mono); font-size:14px;">
+                            2</div>
                         <div>
-                            <h3 style="font-size:0.9rem; margin-bottom:4px; color:var(--text-primary);">🎯 Nominal Plato Tespiti</h3>
-                            <p style="font-size:0.8rem; color:var(--text-secondary); line-height:1.5;">Tüm gerçek VMon voltaj okumaları hesaba katılır ve ayarlar sekmesindeki "Voltage Step Size" (örn. 250V, 500V) yapılandırmasına en yakın olacak şekilde yuvarlanarak sabit "Plato" voltaj hedeflerine dönüştürülür. Eğer okunan voltaj, ayarlardaki "Tolerance" (Tolerans) sınırlarından daha uzaksa, o anda cihazın ara bir değerde (Rampa yükselme/düşme) olduğu kabul edilir ve o okuma veriden atılır.</p>
+                            <h3 style="font-size:0.9rem; margin-bottom:4px; color:var(--text-primary);">🎯 Nominal Plato
+                                Tespiti</h3>
+                            <p style="font-size:0.8rem; color:var(--text-secondary); line-height:1.5;">Tüm gerçek VMon
+                                voltaj okumaları hesaba katılır ve ayarlar sekmesindeki "Voltage Step Size" (örn. 250V,
+                                500V) yapılandırmasına en yakın olacak şekilde yuvarlanarak sabit "Plato" voltaj
+                                hedeflerine dönüştürülür. Eğer okunan voltaj, ayarlardaki "Tolerance" (Tolerans)
+                                sınırlarından daha uzaksa, o anda cihazın ara bir değerde (Rampa yükselme/düşme) olduğu
+                                kabul edilir ve o okuma veriden atılır.</p>
                         </div>
                     </div>
-                    <div style="display:flex; gap:16px; align-items:flex-start; padding:16px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm);">
-                        <div style="background:var(--accent); color:#fff; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-family:var(--font-mono); font-size:14px;">3</div>
+                    <div
+                        style="display:flex; gap:16px; align-items:flex-start; padding:16px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm);">
+                        <div
+                            style="background:var(--accent); color:#fff; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-family:var(--font-mono); font-size:14px;">
+                            3</div>
                         <div>
-                            <h3 style="font-size:0.9rem; margin-bottom:4px; color:var(--text-primary);">📊 Akımların Gruplanması (N Değeri)</h3>
-                            <p style="font-size:0.8rem; color:var(--text-secondary); line-height:1.5;">Cihaz kararlı bir voltaj hedefine (platoya) oturduğunda saniyede birden fazla akım günlüğü tutabilir. Algoritma, gerçeklenen VMon'a karşılık gelen tüm bu IMonH akım değerlerini ilgili plato listesine toplar. Yukarıdaki "Detailed Statistics" tablosunda yer alan <b>N</b> değeri, o plato için başarılı şekilde eşleşmiş ve analize dahil edilmiş ham log satırlarının miktarını gösterir.</p>
+                            <h3 style="font-size:0.9rem; margin-bottom:4px; color:var(--text-primary);">📊 Akımların
+                                Gruplanması (N Değeri)</h3>
+                            <p style="font-size:0.8rem; color:var(--text-secondary); line-height:1.5;">Cihaz kararlı bir
+                                voltaj hedefine (platoya) oturduğunda saniyede birden fazla akım günlüğü tutabilir.
+                                Algoritma, gerçeklenen VMon'a karşılık gelen tüm bu IMonH akım değerlerini ilgili plato
+                                listesine toplar. Yukarıdaki "Detailed Statistics" tablosunda yer alan <b>N</b> değeri,
+                                o plato için başarılı şekilde eşleşmiş ve analize dahil edilmiş ham log satırlarının
+                                miktarını gösterir.</p>
                         </div>
                     </div>
-                    <div style="display:flex; gap:16px; align-items:flex-start; padding:16px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm);">
-                        <div style="background:var(--accent); color:#fff; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-family:var(--font-mono); font-size:14px;">4</div>
+                    <div
+                        style="display:flex; gap:16px; align-items:flex-start; padding:16px; background:var(--bg-input); border:1px solid var(--border); border-radius:var(--radius-sm);">
+                        <div
+                            style="background:var(--accent); color:#fff; width:28px; height:28px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; flex-shrink:0; font-family:var(--font-mono); font-size:14px;">
+                            4</div>
                         <div>
-                            <h3 style="font-size:0.9rem; margin-bottom:4px; color:var(--text-primary);">📐 Aritmetik Ortalama (⟨I⟩) ve Standart Sapma (σ)</h3>
-                            <p style="font-size:0.8rem; color:var(--text-secondary); line-height:1.5;">Toplanan tüm geçerli akım ölçümleri birleştirilerek plato bazında analiz edilir. Her voltaj adımı için birleştirilen liste kullanılarak <b>⟨I⟩ Aritmetik Ortalaması</b> bulunur (Grafikler bu değer üzerinden çizilir). Okumaların bu ortalama değerinden ne kadar çok saptığını ve cihazın ne kadar gürültülü okuma yaptığını gösterebilmek için de Bessel Düzeltmeli varyans üzerinden <b>Standart Sapma (σ)</b> hesaplanır.</p>
+                            <h3 style="font-size:0.9rem; margin-bottom:4px; color:var(--text-primary);">📐 Aritmetik
+                                Ortalama (⟨I⟩) ve Standart Sapma (σ)</h3>
+                            <p style="font-size:0.8rem; color:var(--text-secondary); line-height:1.5;">Toplanan tüm
+                                geçerli akım ölçümleri birleştirilerek plato bazında analiz edilir. Her voltaj adımı
+                                için birleştirilen liste kullanılarak <b>⟨I⟩ Aritmetik Ortalaması</b> bulunur (Grafikler
+                                bu değer üzerinden çizilir). Okumaların bu ortalama değerinden ne kadar çok saptığını ve
+                                cihazın ne kadar gürültülü okuma yaptığını gösterebilmek için de Bessel Düzeltmeli
+                                varyans üzerinden <b>Standart Sapma (σ)</b> hesaplanır.</p>
                         </div>
                     </div>
                 </div>
