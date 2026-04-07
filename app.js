@@ -63,6 +63,12 @@ const rawSec       = document.getElementById('raw-section');
 const statsBody    = document.getElementById('stats-body');
 const overviewGrid = document.getElementById('overview-grid');
 
+// Modal Elements
+const rawDataModal  = document.getElementById('raw-data-modal');
+const modalTitle    = document.getElementById('modal-title');
+const modalBody     = document.getElementById('modal-body');
+const closeModalBtn = document.getElementById('close-modal-btn');
+
 // Aksiyon butonları
 const exportCSVBtn     = document.getElementById('export-csv-btn');
 const exportPNGBtn     = document.getElementById('export-png-btn');
@@ -265,6 +271,48 @@ function runAnalysis() {
   resultsSec.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
+
+/* ═══════════════════════════════════════
+   MODAL ETKİLEŞİMLERİ (Row Click & Modal Closure)
+   ═══════════════════════════════════════ */
+
+// Tablodaki satıra tıklanınca ham verileri gösterme
+statsBody.addEventListener('click', (e) => {
+  const tr = e.target.closest('tr');
+  if (!tr || tr.dataset.index === undefined) return;
+  const index = parseInt(tr.dataset.index, 10);
+  const item = analysisData[index];
+  if (!item || !item.rawItems) return;
+  
+  modalTitle.textContent = `Raw Data for ${item.nominalV}V Plateau`;
+  modalBody.innerHTML = '';
+  
+  const rows = [];
+  if (item.rawItems.ch1) item.rawItems.ch1.forEach(d => rows.push({ ch: 1, ...d }));
+  if (item.rawItems.ch2) item.rawItems.ch2.forEach(d => rows.push({ ch: 2, ...d }));
+  
+  // Zaman damgasına göre sırala
+  rows.sort((a,b) => (a.timestamp > b.timestamp) ? 1 : ((b.timestamp > a.timestamp) ? -1 : 0));
+  
+  rows.forEach(r => {
+    const trModal = document.createElement('tr');
+    trModal.innerHTML = `
+      <td>Ch ${r.ch}</td>
+      <td>${r.timestamp.replace('T', ' ')}</td>
+      <td>${r.voltage.toFixed(2)}</td>
+      <td>${r.current}</td>
+    `;
+    modalBody.appendChild(trModal);
+  });
+  
+  rawDataModal.showModal();
+});
+
+// Modalı kapatma işlemleri
+closeModalBtn.addEventListener('click', () => rawDataModal.close());
+rawDataModal.addEventListener('click', (e) => {
+  if (e.target === rawDataModal) rawDataModal.close(); // Arka plana tıklanınca kapat
+});
 
 /* ═══════════════════════════════════════
    DIŞA AKTARMA BUTONLARI

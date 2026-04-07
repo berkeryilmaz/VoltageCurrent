@@ -288,8 +288,11 @@ function channelChartOpts(title, c) {
  */
 export function renderStats(results, tbody) {
   tbody.innerHTML = '';
-  for (const r of results) {
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
     const tr = document.createElement('tr');
+    tr.dataset.index = i;
+    tr.title = "Click to view raw data points";
     tr.innerHTML = `
       <td>${r.totalV.toFixed(0)}</td>
       <td>${r.nominalV.toFixed(0)}</td>

@@ -266,6 +266,29 @@
                 <!-- filled by JS -->
             </div>
         </section>
+
+        <!-- ─── Raw Data Modal ─── -->
+        <dialog id="raw-data-modal" class="modal card">
+            <div class="card-header">
+                <h2 id="modal-title">Raw Data Points</h2>
+                <button class="btn btn-ghost" id="close-modal-btn" title="Close">✕</button>
+            </div>
+            <div class="card-body">
+                <div class="table-wrapper">
+                    <table id="modal-table">
+                        <thead>
+                            <tr>
+                                <th>Channel</th>
+                                <th>Timestamp</th>
+                                <th>Raw Voltage (V)</th>
+                                <th>Raw Current (µA)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modal-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </dialog>
     </main>
 
     <footer id="app-footer">

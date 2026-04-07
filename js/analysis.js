@@ -129,7 +129,7 @@ export function analyze(records, { tolerance, stepSize, ch0Thresh, bipolar }) {
         if (dist < bestDist) { bestDist = dist; best = nom; }
       }
       if (best !== null && bestDist <= tolerance) {
-        if (grouped[best][chKey]) grouped[best][chKey].push(d.current);
+        if (grouped[best][chKey]) grouped[best][chKey].push(d);
       }
     }
   }
@@ -138,10 +138,15 @@ export function analyze(records, { tolerance, stepSize, ch0Thresh, bipolar }) {
   const results = [];
   for (const nom of nominals) {
     const g = grouped[nom];
-    const ch1Avg = mean(g.ch1);      // Kanal 1 ortalama akım
-    const ch2Avg = mean(g.ch2);      // Kanal 2 ortalama akım
-    const ch1Std = stddev(g.ch1);    // Kanal 1 standart sapma
-    const ch2Std = stddev(g.ch2);    // Kanal 2 standart sapma
+    
+    // Akım değerlerini ayıkla istatistikler için
+    const ch1Cur = g.ch1.map(d => d.current);
+    const ch2Cur = g.ch2.map(d => d.current);
+    
+    const ch1Avg = mean(ch1Cur);      // Kanal 1 ortalama akım
+    const ch2Avg = mean(ch2Cur);      // Kanal 2 ortalama akım
+    const ch1Std = stddev(ch1Cur);    // Kanal 1 standart sapma
+    const ch2Std = stddev(ch2Cur);    // Kanal 2 standart sapma
     const totalI = ch1Avg + ch2Avg;  // Toplam akım
     const totalV = nom * bipolar;    // Toplam voltaj (bipolar düzeltme)
 
@@ -152,6 +157,7 @@ export function analyze(records, { tolerance, stepSize, ch0Thresh, bipolar }) {
       ch1Std, ch2Std,
       ch1N: g.ch1.length,
       ch2N: g.ch2.length,
+      rawItems: { ch1: g.ch1, ch2: g.ch2 } // Kullanılan ham satırlar
     });
   }
 
