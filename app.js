@@ -60,6 +60,7 @@ const resultsSec   = document.getElementById('results-section');
 const statsSec     = document.getElementById('stats-section');
 const channelSec   = document.getElementById('channel-section');
 const rawSec       = document.getElementById('raw-section');
+const howItWorksSec= document.getElementById('how-it-works-section');
 const statsBody    = document.getElementById('stats-body');
 const overviewGrid = document.getElementById('overview-grid');
 
@@ -205,7 +206,7 @@ function resetFile() {
   analyzeBtn.disabled = true;
   statusBadge.textContent = 'No Data';
   statusBadge.classList.remove('active');
-  [resultsSec, statsSec, channelSec, rawSec].forEach(s => s.style.display = 'none');
+  [resultsSec, statsSec, channelSec, rawSec, howItWorksSec].forEach(s => s.style.display = 'none');
   destroyCharts();
 }
 
@@ -261,6 +262,7 @@ function runAnalysis() {
   statsSec.style.display = '';
   channelSec.style.display = '';
   rawSec.style.display = '';
+  howItWorksSec.style.display = '';
 
   renderIVChart(analysisData, xAxisFromZero);
   renderStats(analysisData, statsBody);
@@ -298,7 +300,7 @@ statsBody.addEventListener('click', (e) => {
     const trModal = document.createElement('tr');
     trModal.innerHTML = `
       <td>Ch ${r.ch}</td>
-      <td>${r.timestamp.replace('T', ' ')}</td>
+      <td>${r.timestamp}</td>
       <td>${r.voltage.toFixed(2)}</td>
       <td>${r.current}</td>
     `;
