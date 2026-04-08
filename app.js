@@ -39,6 +39,7 @@ import {
 
 import {
   exportCSV,
+  exportRawDataCSV,
   exportPNG,
   exportScientificFigure,
   exportTsScience,
@@ -96,6 +97,7 @@ let analysisData   = null;    // Analiz sonuçları
 let chData         = null;    // Kanal bazlı ham okuma verileri
 let xAxisFromZero  = false;   // X ekseni 0'dan mı başlasın?
 let sourceFileName = 'n1470_data';  // İndirme dosya adı tabanı
+let currentModalRows = [];    // Modal'daki o anki ham veriler
 
 
 /* ═══════════════════════════════════════
@@ -206,6 +208,7 @@ function resetFile() {
   analysisData = null;
   chData = null;
   sourceFileName = 'n1470_data';
+  currentModalRows = [];
   fileInput.value = '';
   fileInfo.style.display = 'none';
   dropZone.style.display = '';
@@ -322,6 +325,7 @@ statsBody.addEventListener('click', (e) => {
     modalBody.appendChild(trModal);
   });
   
+  currentModalRows = rows;
   rawDataModal.showModal();
 });
 
@@ -339,6 +343,20 @@ rawDataModal.addEventListener('click', (e) => {
 exportCSVBtn.addEventListener('click', () => {
   exportCSV(analysisData, sourceFileName);
 });
+
+const exportStatsCsvBtn = document.getElementById('export-stats-csv-btn');
+if (exportStatsCsvBtn) {
+  exportStatsCsvBtn.addEventListener('click', () => {
+    exportCSV(analysisData, sourceFileName);
+  });
+}
+
+const exportModalCsvBtn = document.getElementById('export-modal-csv-btn');
+if (exportModalCsvBtn) {
+  exportModalCsvBtn.addEventListener('click', () => {
+    exportRawDataCSV(currentModalRows, sourceFileName);
+  });
+}
 
 // I-V PNG & Science
 exportPNGBtn.addEventListener('click', () => {

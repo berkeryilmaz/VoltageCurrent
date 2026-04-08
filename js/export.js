@@ -51,6 +51,15 @@ export function exportCSV(results, sourceFileName) {
   downloadBlob(csv, `${sourceFileName}_iv_results.csv`, 'text/csv');
 }
 
+export function exportRawDataCSV(rows, sourceFileName) {
+  if (!rows || !rows.length) return;
+  let csv = 'Channel,Timestamp,Raw_Voltage_V,Raw_Current_uA\n';
+  for (const r of rows) {
+    csv += `${r.ch},${r.timestamp},${r.voltage.toFixed(2)},${r.current}\n`;
+  }
+  downloadBlob(csv, `${sourceFileName}_raw_data.csv`, 'text/csv');
+}
+
 /**
  * exportPNG — Ekran Grafiğini PNG Olarak İndirme
  *
@@ -145,18 +154,54 @@ export function exportScientificFigure(results, xAxisFromZero, sourceFileName) {
 
   // ── Veri hazırlama ──
   const xVals = results.map(r => r.totalV);
-  const yVals = results.map(r => r.totalI);
   const errCh1 = results.map(r => r.ch1Std);
   const errCh2 = results.map(r => r.ch2Std);
-
   // Hata propagasyonu: σ_total = √(σ₁² + σ₂²)
   const errTotal = results.map((_, i) => Math.sqrt(errCh1[i] ** 2 + errCh2[i] ** 2));
+  
+  const errs = [errTotal, errCh1, errCh2];
 
-  // Eksen sınırları — %5 marjin ile
+  const chart = getIVChart();
+  if (!chart) return;
+
+  const patterns = [
+      [],                                                          // 0: Solid
+      [10 * DPI_SCALE, 5 * DPI_SCALE],                             // 1: Dashed
+      [2 * DPI_SCALE, 4 * DPI_SCALE]                               // 2: Dotted
+  ];
+
+  const symbols = [
+      (ctx, x, y) => ctx.arc(x, y, 4 * DPI_SCALE, 0, Math.PI * 2), // circle
+      (ctx, x, y) => ctx.rect(x - 3.5 * DPI_SCALE, y - 3.5 * DPI_SCALE, 7 * DPI_SCALE, 7 * DPI_SCALE), // square
+      (ctx, x, y) => { ctx.moveTo(x, y - 4 * DPI_SCALE); ctx.lineTo(x + 4 * DPI_SCALE, y + 4 * DPI_SCALE); ctx.lineTo(x - 4 * DPI_SCALE, y + 4 * DPI_SCALE); ctx.closePath(); } // triangle
+  ];
+
+  const visibleDatasets = [];
+  let visibleIndex = 0;
+  for (let i = 0; i < chart.data.datasets.length; i++) {
+     if (chart.isDatasetVisible(i)) {
+         visibleDatasets.push({
+            label: chart.data.datasets[i].label,
+            data: chart.data.datasets[i].data,
+            err: errs[i],
+            dash: patterns[visibleIndex % patterns.length],
+            symbol: symbols[visibleIndex % symbols.length]
+         });
+         visibleIndex++;
+     }
+  }
+
+  // Eksen sınırları
   const xMin = xAxisFromZero ? 0 : Math.min(...xVals) * 0.95;
   const xMax = Math.max(...xVals) * 1.05;
   const yMin = 0;
-  const yMax = Math.max(...yVals.map((y, i) => y + errTotal[i])) * 1.15;
+  let yMax = -Infinity;
+  for (const ds of visibleDatasets) {
+      const maxVal = Math.max(...ds.data.map((y, i) => y + ds.err[i]));
+      if (maxVal > yMax) yMax = maxVal;
+  }
+  if (yMax === -Infinity) return;
+  yMax = yMax * 1.15;
 
   // Koordinat dönüşüm fonksiyonları
   function toCanvasX(v) { return PAD.left + ((v - xMin) / (xMax - xMin)) * plotW; }
@@ -242,93 +287,107 @@ export function exportScientificFigure(results, xAxisFromZero, sourceFileName) {
   ctx.fillText('Current (µA)', 0, 0);
   ctx.restore();
 
-  // ── Veri çizgisi (siyah düz çizgi -> kıvrımlı eğri) ──
-  ctx.strokeStyle = '#000000';
-  ctx.lineWidth = 2 * DPI_SCALE;
-  ctx.lineJoin = 'round';
-  ctx.setLineDash([]);
-  ctx.beginPath();
-  
+  // ── Veri çizgisi (siyah kıvrımlı eğri) ──
   if (xVals.length > 0) {
-    const pts = [];
-    for (let i = 0; i < xVals.length; i++) {
-        pts.push({ x: toCanvasX(xVals[i]), y: toCanvasY(yVals[i]) });
+    for (const ds of visibleDatasets) {
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 2 * DPI_SCALE;
+      ctx.lineJoin = 'round';
+      ctx.setLineDash(ds.dash);
+      ctx.beginPath();
+      
+      const pts = [];
+      for (let i = 0; i < xVals.length; i++) {
+          pts.push({ x: toCanvasX(xVals[i]), y: toCanvasY(ds.data[i]) });
+      }
+      
+      ctx.moveTo(pts[0].x, pts[0].y);
+      const tension = 0.2; // Yumuşak kıvrım katsayısı
+      
+      for (let i = 0; i < pts.length - 1; i++) {
+        const p0 = (i > 0) ? pts[i - 1] : pts[0];
+        const p1 = pts[i];
+        const p2 = pts[i + 1];
+        const p3 = (i !== pts.length - 2) ? pts[i + 2] : p2;
+
+        const cp1x = p1.x + (p2.x - p0.x) * tension;
+        const cp1y = p1.y + (p2.y - p0.y) * tension;
+
+        const cp2x = p2.x - (p3.x - p1.x) * tension;
+        const cp2y = p2.y - (p3.y - p1.y) * tension;
+
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+      }
+      ctx.stroke();
+
+      // ── Hata çubukları (error bars) ──
+      ctx.strokeStyle = '#333333';
+      ctx.lineWidth = 1.2 * DPI_SCALE;
+      ctx.setLineDash([]);
+      const capW = 4 * DPI_SCALE;
+      for (let i = 0; i < xVals.length; i++) {
+        const cx = pts[i].x;
+        const cyTop = toCanvasY(ds.data[i] + ds.err[i]);
+        const cyBot = toCanvasY(ds.data[i] - ds.err[i]);
+        // Dikey çubuk
+        ctx.beginPath();
+        ctx.moveTo(cx, cyTop);
+        ctx.lineTo(cx, cyBot);
+        ctx.stroke();
+        // Yatay kapaklar (üst ve alt)
+        ctx.beginPath();
+        ctx.moveTo(cx - capW, cyTop);
+        ctx.lineTo(cx + capW, cyTop);
+        ctx.moveTo(cx - capW, cyBot);
+        ctx.lineTo(cx + capW, cyBot);
+        ctx.stroke();
+      }
+
+      // ── Veri noktaları (dolu siyah şekiller) ──
+      for (let i = 0; i < xVals.length; i++) {
+        const cx = pts[i].x;
+        const cy = pts[i].y;
+        ctx.beginPath();
+        ds.symbol(ctx, cx, cy);
+        ctx.fillStyle = '#000000';
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1.5 * DPI_SCALE;
+        ctx.stroke();
+      }
     }
-    
-    ctx.moveTo(pts[0].x, pts[0].y);
-    const tension = 0.2; // Yumuşak kıvrım katsayısı
-    
-    for (let i = 0; i < pts.length - 1; i++) {
-      const p0 = (i > 0) ? pts[i - 1] : pts[0];
-      const p1 = pts[i];
-      const p2 = pts[i + 1];
-      const p3 = (i !== pts.length - 2) ? pts[i + 2] : p2;
-
-      const cp1x = p1.x + (p2.x - p0.x) * tension;
-      const cp1y = p1.y + (p2.y - p0.y) * tension;
-
-      const cp2x = p2.x - (p3.x - p1.x) * tension;
-      const cp2y = p2.y - (p3.y - p1.y) * tension;
-
-      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
-    }
-  }
-  ctx.stroke();
-
-  // ── Hata çubukları (error bars) ──
-  ctx.strokeStyle = '#333333';
-  ctx.lineWidth = 1.2 * DPI_SCALE;
-  const capW = 4 * DPI_SCALE;
-  for (let i = 0; i < xVals.length; i++) {
-    const cx = toCanvasX(xVals[i]);
-    const cyTop = toCanvasY(yVals[i] + errTotal[i]);
-    const cyBot = toCanvasY(yVals[i] - errTotal[i]);
-    // Dikey çubuk
-    ctx.beginPath();
-    ctx.moveTo(cx, cyTop);
-    ctx.lineTo(cx, cyBot);
-    ctx.stroke();
-    // Yatay kapaklar (üst ve alt)
-    ctx.beginPath();
-    ctx.moveTo(cx - capW, cyTop);
-    ctx.lineTo(cx + capW, cyTop);
-    ctx.moveTo(cx - capW, cyBot);
-    ctx.lineTo(cx + capW, cyBot);
-    ctx.stroke();
-  }
-
-  // ── Veri noktaları (dolu siyah daireler) ──
-  for (let i = 0; i < xVals.length; i++) {
-    const cx = toCanvasX(xVals[i]);
-    const cy = toCanvasY(yVals[i]);
-    ctx.beginPath();
-    ctx.arc(cx, cy, 4 * DPI_SCALE, 0, Math.PI * 2);
-    ctx.fillStyle = '#000000';
-    ctx.fill();
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 1.5 * DPI_SCALE;
-    ctx.stroke();
   }
 
   // ── Efsane (Legend) ──
   const legendX = PAD.left + 20 * DPI_SCALE;
-  const legendY = PAD.top + 16 * DPI_SCALE;
+  let currentLegendY = PAD.top + 16 * DPI_SCALE;
   ctx.font = `${11 * DPI_SCALE}px "Times New Roman", Georgia, serif`;
   ctx.fillStyle = '#000000';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
 
-  // Çizgi + nokta sembolü
-  ctx.strokeStyle = '#000000';
-  ctx.lineWidth = 2 * DPI_SCALE;
-  ctx.beginPath();
-  ctx.moveTo(legendX, legendY);
-  ctx.lineTo(legendX + 24 * DPI_SCALE, legendY);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.arc(legendX + 12 * DPI_SCALE, legendY, 3 * DPI_SCALE, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.fillText('I_total = ⟨I_ch1⟩ + ⟨I_ch2⟩', legendX + 30 * DPI_SCALE, legendY);
+  for (const ds of visibleDatasets) {
+    ctx.strokeStyle = '#000000';
+    ctx.lineWidth = 2 * DPI_SCALE;
+    ctx.setLineDash(ds.dash);
+    ctx.beginPath();
+    ctx.moveTo(legendX, currentLegendY);
+    ctx.lineTo(legendX + 24 * DPI_SCALE, currentLegendY);
+    ctx.stroke();
+    
+    // Sembol çizimi
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ds.symbol(ctx, legendX + 12 * DPI_SCALE, currentLegendY);
+    ctx.fillStyle = '#000000';
+    ctx.fill();
+    
+    // Label düzeltmesi
+    const dispLabel = ds.label === 'Total Current (Ch1 + Ch2)' ? 'I_total = ⟨I_ch1⟩ + ⟨I_ch2⟩' : ds.label;
+    ctx.fillText(dispLabel, legendX + 30 * DPI_SCALE, currentLegendY);
+    
+    currentLegendY += 24 * DPI_SCALE;
+  }
 
   // ── Figür başlığı ──
   ctx.font = serifFontTitle;
