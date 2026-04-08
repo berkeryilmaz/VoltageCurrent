@@ -373,6 +373,31 @@ export function renderOverview(allRecords, chData, results, container) {
    ───────────────────────────────────────── */
 
 /**
+ * Boş olmayan değerler üzerinden (null atlayarak) median filtresi uygular
+ */
+function applyMedianFilter(data, windowSize) {
+  if (!data || windowSize < 1) return data;
+  const result = new Array(data.length).fill(null);
+  const half = Math.floor(windowSize / 2);
+  
+  for (let i = 0; i < data.length; i++) {
+    if (data[i] === null) continue;
+    const windowData = [];
+    for (let j = i - half; j <= i + half; j++) {
+      if (j >= 0 && j < data.length && data[j] !== null) {
+        windowData.push(data[j]);
+      }
+    }
+    if (windowData.length > 0) {
+      windowData.sort((a,b) => a - b);
+      const mid = Math.floor(windowData.length / 2);
+      result[i] = windowData.length % 2 !== 0 ? windowData[mid] : (windowData[mid - 1] + windowData[mid]) / 2;
+    }
+  }
+  return result;
+}
+
+/**
  * renderTimeSeriesCharts
  * Ham loglardaki (records) VMon ve IMonH değerlerini zamana karşı çizer.
  * Hem Kanal 1 hem Kanal 2 için okumaları kendi zaman ekseni etiketlerine eşleştirir.
@@ -415,46 +440,76 @@ export function renderTimeSeriesCharts(records) {
   const iDataCh1 = iRawLabels.map(ts => iCh1Map[ts] !== undefined ? iCh1Map[ts] : null);
   const iDataCh2 = iRawLabels.map(ts => iCh2Map[ts] !== undefined ? iCh2Map[ts] : null);
 
+  const windowSize = document.getElementById('median-window') ? parseInt(document.getElementById('median-window').value, 10) || 155 : 155;
+
+  const iDataTotal = iDisplayLabels.map((_, idx) => {
+    const d1 = iDataCh1[idx];
+    const d2 = iDataCh2[idx];
+    if (d1 === null && d2 === null) return null;
+    return (d1 || 0) + (d2 || 0);
+  });
+
+  const iDataCh1Filtered = applyMedianFilter(iDataCh1, windowSize);
+  const iDataCh2Filtered = applyMedianFilter(iDataCh2, windowSize);
+  const iDataTotalFiltered = applyMedianFilter(iDataTotal, windowSize);
+
   // Voltaj - Zaman Grafiğini Çiz
   const tsVEl = document.getElementById('ts-v-chart');
   if (tsVEl) {
-    if (tsVChart) tsVChart.destroy();
-    tsVChart = new Chart(tsVEl.getContext('2d'), {
-      type: 'line',
-      data: {
-        labels: vDisplayLabels,
-        datasets: [
-          {
-            label: 'Ch 1 Voltage (VMon)',
-            data: vDataCh1,
-            borderColor: '#6366f1',
-            borderWidth: 1.5,
-            pointRadius: 1,
-            pointHoverRadius: 4,
-            tension: 0, 
-            spanGaps: true
-          },
-          {
-            label: 'Ch 2 Voltage (VMon)',
-            data: vDataCh2,
-            borderColor: '#f59e0b',
-            borderWidth: 1.5,
-            pointRadius: 1,
-            pointHoverRadius: 4,
-            tension: 0,
-            spanGaps: true
-          }
-        ]
-      },
-      options: tsChartOpts('Voltage Over Time', 'Voltage (V)', c)
-    });
+    if (tsVChart && tsVChart.data.datasets.length === 2) {
+      tsVChart.data.labels = vDisplayLabels;
+      tsVChart.data.datasets[0].data = vDataCh1;
+      tsVChart.data.datasets[1].data = vDataCh2;
+      tsVChart.update('none');
+    } else {
+      if (tsVChart) tsVChart.destroy();
+      tsVChart = new Chart(tsVEl.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: vDisplayLabels,
+          datasets: [
+            {
+              label: 'Ch 1 Voltage (VMon)',
+              data: vDataCh1,
+              borderColor: '#6366f1',
+              borderWidth: 1.5,
+              pointRadius: 1,
+              pointHoverRadius: 4,
+              tension: 0, 
+              spanGaps: true
+            },
+            {
+              label: 'Ch 2 Voltage (VMon)',
+              data: vDataCh2,
+              borderColor: '#f59e0b',
+              borderWidth: 1.5,
+              pointRadius: 1,
+              pointHoverRadius: 4,
+              tension: 0,
+              spanGaps: true
+            }
+          ]
+        },
+        options: tsChartOpts('Voltage Over Time', 'Voltage (V)', c)
+      });
+    }
   }
 
   // Akım - Zaman Grafiğini Çiz
   const tsIEl = document.getElementById('ts-i-chart');
   if (tsIEl) {
-    if (tsIChart) tsIChart.destroy();
-    tsIChart = new Chart(tsIEl.getContext('2d'), {
+    if (tsIChart && tsIChart.data.datasets.length === 6) {
+      tsIChart.data.labels = iDisplayLabels;
+      tsIChart.data.datasets[0].data = iDataCh1;
+      tsIChart.data.datasets[1].data = iDataCh2;
+      tsIChart.data.datasets[2].data = iDataTotal;
+      tsIChart.data.datasets[3].data = iDataCh1Filtered;
+      tsIChart.data.datasets[4].data = iDataCh2Filtered;
+      tsIChart.data.datasets[5].data = iDataTotalFiltered;
+      tsIChart.update('none');
+    } else {
+      if (tsIChart) tsIChart.destroy();
+      tsIChart = new Chart(tsIEl.getContext('2d'), {
       type: 'line',
       data: {
         labels: iDisplayLabels,
@@ -467,7 +522,8 @@ export function renderTimeSeriesCharts(records) {
             pointRadius: 1,
             pointHoverRadius: 4,
             tension: 0,
-            spanGaps: true
+            spanGaps: true,
+            hidden: true
           },
           {
             label: 'Ch 2 Current (IMonH)',
@@ -477,12 +533,61 @@ export function renderTimeSeriesCharts(records) {
             pointRadius: 1,
             pointHoverRadius: 4,
             tension: 0,
-            spanGaps: true
+            spanGaps: true,
+            hidden: true
+          },
+          {
+            label: 'Total Current',
+            data: iDataTotal,
+            borderColor: '#10b981',
+            borderWidth: 1.5,
+            pointRadius: 1,
+            pointHoverRadius: 4,
+            tension: 0,
+            spanGaps: true,
+            hidden: true
+          },
+          {
+            label: 'Ch 1 Filtered (Median)',
+            data: iDataCh1Filtered,
+            borderColor: '#818cf8',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            tension: 0,
+            spanGaps: true,
+            hidden: false
+          },
+          {
+            label: 'Ch 2 Filtered (Median)',
+            data: iDataCh2Filtered,
+            borderColor: '#fbbf24',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            tension: 0,
+            spanGaps: true,
+            hidden: false
+          },
+          {
+            label: 'Total Filtered (Median)',
+            data: iDataTotalFiltered,
+            borderColor: '#34d399',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            tension: 0,
+            spanGaps: true,
+            hidden: false
           }
         ]
       },
       options: tsChartOpts('Current Over Time', 'Current (µA)', c)
     });
+    }
   }
 }
 

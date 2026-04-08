@@ -356,11 +356,32 @@ export function exportTsScience(type, sourceFileName) {
   if (!chart || !chart.data.labels.length) return;
 
   const labels = chart.data.labels;
-  const ch1Data = chart.data.datasets[0].data;
-  const ch2Data = chart.data.datasets[1].data;
+  const DPI_SCALE = 4;
+
+  const patterns = [
+      [],                                                          // 0: Solid
+      [10 * DPI_SCALE, 5 * DPI_SCALE],                             // 1: Dashed
+      [2 * DPI_SCALE, 4 * DPI_SCALE],                              // 2: Dotted
+      [10 * DPI_SCALE, 5 * DPI_SCALE, 2 * DPI_SCALE, 5 * DPI_SCALE], // 3: Dash-Dot
+      [15 * DPI_SCALE, 6 * DPI_SCALE],                             // 4: Long Dash
+      [5 * DPI_SCALE, 5 * DPI_SCALE],                              // 5: Short Dash
+  ];
+
+  const visibleDatasets = [];
+  let visibleIndex = 0;
+  for (let i = 0; i < chart.data.datasets.length; i++) {
+     if (chart.isDatasetVisible(i)) {
+         visibleDatasets.push({
+            label: chart.data.datasets[i].label,
+            data: chart.data.datasets[i].data,
+            color: '#000000',
+            dash: patterns[visibleIndex % patterns.length]
+         });
+         visibleIndex++;
+     }
+  }
 
   // ── Çözünürlük Konfigürasyonu ──
-  const DPI_SCALE = 4;
   const W = 1000 * DPI_SCALE;
   const H = 600 * DPI_SCALE;
   const PAD = {
@@ -385,8 +406,12 @@ export function exportTsScience(type, sourceFileName) {
   let yMin = Infinity;
   let yMax = -Infinity;
   for (let i = 0; i < labels.length; i++) {
-     if (ch1Data[i] !== null) { yMin = Math.min(yMin, ch1Data[i]); yMax = Math.max(yMax, ch1Data[i]); }
-     if (ch2Data[i] !== null) { yMin = Math.min(yMin, ch2Data[i]); yMax = Math.max(yMax, ch2Data[i]); }
+     for (const ds of visibleDatasets) {
+        if (ds.data[i] !== null) {
+           yMin = Math.min(yMin, ds.data[i]);
+           yMax = Math.max(yMax, ds.data[i]);
+        }
+     }
   }
   if (yMin === Infinity) return; // No data
 
@@ -481,8 +506,8 @@ export function exportTsScience(type, sourceFileName) {
   ctx.restore();
 
   // ── Veri Çizgileri Yardımcısı ──
-  function drawChannel(data, dashPattern) {
-    ctx.strokeStyle = '#000000';
+  function drawChannel(data, color, dashPattern) {
+    ctx.strokeStyle = color;
     ctx.lineWidth = 2 * DPI_SCALE;
     ctx.lineJoin = 'round';
     ctx.setLineDash(dashPattern);
@@ -503,35 +528,29 @@ export function exportTsScience(type, sourceFileName) {
     ctx.stroke();
   }
 
-  // Draw Channel 2 (Dashed gray/black)
-  drawChannel(ch2Data, [15 * DPI_SCALE, 10 * DPI_SCALE]);
-  // Draw Channel 1 (Solid black)
-  drawChannel(ch1Data, []);
+  for (const ds of visibleDatasets) {
+    drawChannel(ds.data, ds.color, ds.dash);
+  }
 
   // ── Efsane (Legend) ──
   const legendX = PAD.left + 20 * DPI_SCALE;
-  const legendY1 = PAD.top + 16 * DPI_SCALE;
-  const legendY2 = PAD.top + 40 * DPI_SCALE;
+  let currentLegendY = PAD.top + 16 * DPI_SCALE;
   ctx.font = `${12 * DPI_SCALE}px "Times New Roman", Georgia, serif`;
   ctx.fillStyle = '#000000';
   ctx.textAlign = 'left';
   ctx.textBaseline = 'middle';
 
-  // Ch 1
-  ctx.setLineDash([]);
-  ctx.beginPath();
-  ctx.moveTo(legendX, legendY1);
-  ctx.lineTo(legendX + 30 * DPI_SCALE, legendY1);
-  ctx.stroke();
-  ctx.fillText('Channel 1', legendX + 40 * DPI_SCALE, legendY1);
-
-  // Ch 2
-  ctx.setLineDash([10 * DPI_SCALE, 5 * DPI_SCALE]);
-  ctx.beginPath();
-  ctx.moveTo(legendX, legendY2);
-  ctx.lineTo(legendX + 30 * DPI_SCALE, legendY2);
-  ctx.stroke();
-  ctx.fillText('Channel 2', legendX + 40 * DPI_SCALE, legendY2);
+  for (const ds of visibleDatasets) {
+    ctx.strokeStyle = ds.color;
+    ctx.setLineDash(ds.dash);
+    ctx.beginPath();
+    ctx.moveTo(legendX, currentLegendY);
+    ctx.lineTo(legendX + 30 * DPI_SCALE, currentLegendY);
+    ctx.stroke();
+    
+    ctx.fillText(ds.label, legendX + 40 * DPI_SCALE, currentLegendY);
+    currentLegendY += 24 * DPI_SCALE;
+  }
 
   // ── Figür başlığı ──
   ctx.font = serifFontTitle;

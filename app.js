@@ -81,6 +81,7 @@ const exportPNGBtn     = document.getElementById('export-png-btn');
 const exportScienceBtn = document.getElementById('export-science-btn');
 const xaxisOriginBtn   = document.getElementById('xaxis-origin-btn');
 const themeToggleBtn   = document.getElementById('theme-toggle-btn');
+const medianWindowInput = document.getElementById('median-window');
 
 /* ═══════════════════════════════════════
    Uygulama Durumu (Application State)
@@ -221,6 +222,12 @@ function resetFile() {
    ═══════════════════════════════════════ */
 
 analyzeBtn.addEventListener('click', runAnalysis);
+
+medianWindowInput.addEventListener('change', () => {
+  if (parsedData && parsedData.length) {
+    renderTimeSeriesCharts(parsedData);
+  }
+});
 
 /**
  * runAnalysis — Tam Analiz Pipeline'ını Çalıştırma
