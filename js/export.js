@@ -242,17 +242,36 @@ export function exportScientificFigure(results, xAxisFromZero, sourceFileName) {
   ctx.fillText('Current (µA)', 0, 0);
   ctx.restore();
 
-  // ── Veri çizgisi (siyah düz çizgi) ──
+  // ── Veri çizgisi (siyah düz çizgi -> kıvrımlı eğri) ──
   ctx.strokeStyle = '#000000';
   ctx.lineWidth = 2 * DPI_SCALE;
   ctx.lineJoin = 'round';
   ctx.setLineDash([]);
   ctx.beginPath();
-  for (let i = 0; i < xVals.length; i++) {
-    const cx = toCanvasX(xVals[i]);
-    const cy = toCanvasY(yVals[i]);
-    if (i === 0) ctx.moveTo(cx, cy);
-    else ctx.lineTo(cx, cy);
+  
+  if (xVals.length > 0) {
+    const pts = [];
+    for (let i = 0; i < xVals.length; i++) {
+        pts.push({ x: toCanvasX(xVals[i]), y: toCanvasY(yVals[i]) });
+    }
+    
+    ctx.moveTo(pts[0].x, pts[0].y);
+    const tension = 0.2; // Yumuşak kıvrım katsayısı
+    
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = (i > 0) ? pts[i - 1] : pts[0];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = (i !== pts.length - 2) ? pts[i + 2] : p2;
+
+      const cp1x = p1.x + (p2.x - p0.x) * tension;
+      const cp1y = p1.y + (p2.y - p0.y) * tension;
+
+      const cp2x = p2.x - (p3.x - p1.x) * tension;
+      const cp2y = p2.y - (p3.y - p1.y) * tension;
+
+      ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, p2.x, p2.y);
+    }
   }
   ctx.stroke();
 
